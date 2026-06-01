@@ -2050,9 +2050,9 @@ s_unpack_internal(PyStructObject *soself, const char *startfrom,
         Py_ssize_t j = code->repeat;
         while (j--) {
             PyObject *v;
-            if (strcmp(e->format, "s") == 0) {
+            if (e->format[0] == 's') {
                 v = PyBytes_FromStringAndSize(res, code->size);
-            } else if (strcmp(e->format, "p") == 0) {
+            } else if (e->format[0] == 'p') {
                 Py_ssize_t n;
                 if (code->size == 0) {
                     n = 0;
@@ -2345,7 +2345,7 @@ s_pack_internal(PyStructObject *soself, PyObject *const *args,
         Py_ssize_t j = code->repeat;
         while (j--) {
             PyObject *v = args[i++];
-            if (strcmp(e->format, "s") == 0) {
+            if (e->format[0] == 's') {
                 Py_ssize_t n;
                 int isstring;
                 const void *p;
@@ -2367,7 +2367,7 @@ s_pack_internal(PyStructObject *soself, PyObject *const *args,
                     n = code->size;
                 if (n > 0)
                     memcpy(res, p, n);
-            } else if (strcmp(e->format, "p") == 0) {
+            } else if (e->format[0] == 'p') {
                 Py_ssize_t n;
                 int isstring;
                 const void *p;
