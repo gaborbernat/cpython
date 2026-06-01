@@ -472,11 +472,31 @@ filter_search(PyInterpreterState *interp, PyObject *category,
             break;
         }
 
+        /* Match in the same short-circuit order as the pure-Python reference
+           (Lib/warnings.py): message, then category, then module, then
+           lineno.  Bailing out as soon as one test fails skips the remaining
+           -- possibly regex -- checks for the non-matching filters that a
+           warning scans past, and mirrors Python's evaluation order. */
         good_msg = check_matched(interp, msg, text, NULL);
         if (good_msg == -1) {
             Py_DECREF(tmp_item);
             result = false;
             break;
+        }
+        if (!good_msg) {
+            Py_DECREF(tmp_item);
+            continue;
+        }
+
+        is_subclass = PyObject_IsSubclass(category, cat);
+        if (is_subclass == -1) {
+            Py_DECREF(tmp_item);
+            result = false;
+            break;
+        }
+        if (!is_subclass) {
+            Py_DECREF(tmp_item);
+            continue;
         }
 
         good_mod = check_matched(interp, mod, module, filename);
@@ -485,12 +505,9 @@ filter_search(PyInterpreterState *interp, PyObject *category,
             result = false;
             break;
         }
-
-        is_subclass = PyObject_IsSubclass(category, cat);
-        if (is_subclass == -1) {
+        if (!good_mod) {
             Py_DECREF(tmp_item);
-            result = false;
-            break;
+            continue;
         }
 
         ln = PyLong_AsSsize_t(ln_obj);
@@ -500,7 +517,7 @@ filter_search(PyInterpreterState *interp, PyObject *category,
             break;
         }
 
-        if (good_msg && is_subclass && good_mod && (ln == 0 || lineno == ln)) {
+        if (ln == 0 || lineno == ln) {
             *item = tmp_item;
             *matched_action = action;
             result = true;
