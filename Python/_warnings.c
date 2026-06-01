@@ -834,19 +834,26 @@ warn_explicit(PyThreadState *tstate, PyObject *category, PyObject *message,
     if (action == NULL)
         goto cleanup;
 
+    /* The built-in and most user filters store interned action singletons,
+       so try a pointer-identity check first for the actions that have an
+       existing &_Py_ID(...) (covers the common "ignore"/"default"), falling
+       back to the string compare for any non-interned action. "error",
+       "always" and "once" keep the plain compare (no interned id, and they
+       are not on the hot path). */
     if (_PyUnicode_EqualToASCIIString(action, "error")) {
         PyErr_SetObject(category, message);
         goto cleanup;
     }
 
-    if (_PyUnicode_EqualToASCIIString(action, "ignore")) {
+    if (action == &_Py_ID(ignore) || _PyUnicode_EqualToASCIIString(action, "ignore")) {
         goto return_none;
     }
 
     /* Store in the registry that we've been here, *except* when the action
        is "always" or "all". */
     rc = 0;
-    if (!_PyUnicode_EqualToASCIIString(action, "always") && !_PyUnicode_EqualToASCIIString(action, "all")) {
+    if (!_PyUnicode_EqualToASCIIString(action, "always") &&
+        !(action == &_Py_ID(all) || _PyUnicode_EqualToASCIIString(action, "all"))) {
         if (registry != NULL && registry != Py_None &&
             PyDict_SetItem(registry, key, Py_True) < 0)
         {
@@ -862,12 +869,12 @@ warn_explicit(PyThreadState *tstate, PyObject *category, PyObject *message,
             /* WarningsState.once_registry[(text, category)] = 1 */
             rc = update_registry(interp, registry, text, category, 0);
         }
-        else if (_PyUnicode_EqualToASCIIString(action, "module")) {
+        else if (action == &_Py_ID(module) || _PyUnicode_EqualToASCIIString(action, "module")) {
             /* registry[(text, category, 0)] = 1 */
             if (registry != NULL && registry != Py_None)
                 rc = update_registry(interp, registry, text, category, 0);
         }
-        else if (!_PyUnicode_EqualToASCIIString(action, "default")) {
+        else if (!(action == &_Py_ID(default) || _PyUnicode_EqualToASCIIString(action, "default"))) {
             PyErr_Format(PyExc_RuntimeError,
                         "Unrecognized action (%R) in warnings.filters:\n %R",
                         action, item);
